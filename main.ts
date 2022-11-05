@@ -5,9 +5,24 @@
  */
 //  Elevator details
 let elevator_data = {
+    "status" : 0,
     "current_floorNumber" : 0,
+    "directional" : 0,
+    "sendMachine" : {
+        "receive_data" : {
+            "text" : "",
+            "value" : 0,
+        }
+        ,
+    }
+    ,
     "COP" : {
         "floorNumber" : 1,
+        "call_directions_status" : {
+            "down" : false,
+            "up" : false,
+        }
+        ,
         "send_data" : {
             "text" : "",
             "value" : 0,
@@ -56,7 +71,7 @@ function playAudio(audio_name: string) {
     
  */
     if (audio_name.indexOf("buttonClick") >= 0) {
-        music.ringTone(Note.G)
+        music.playTone(Note.G, music.beat(BeatFraction.Half))
     }
     
 }
@@ -95,8 +110,8 @@ function sendCallSignal(target_direction: number) {
  */
     //  Ensure that target_direction is 1 or -1, nothing more or nothing less. 
     target_direction = ensurePositiveNegativeBinaryOnly(target_direction)
-    //  Generate the message data, which contains "CP<floornumber>call" followed by the direction.
-    elevator_data["COP"]["send_data"]["text"] = "CP" + ("" + elevator_data["COP"]["floorNumber"]) + "call"
+    //  Generate the message data, which contains "L<floornumber>call" followed by the direction.
+    elevator_data["COP"]["send_data"]["text"] = "L" + ("" + elevator_data["COP"]["floorNumber"]) + "call"
     elevator_data["COP"]["send_data"]["value"] = target_direction
     //  Send the message.
     sendMessage()
@@ -122,10 +137,64 @@ function clickButton(target_direction: number) {
 }
 
 //  Button A is the down button.
+//  Button B is the up button.
+//  Map the buttons. 
 input.onButtonPressed(Button.A, function on_button_pressed_a() {
     clickButton(-1)
 })
-//  Button B is the up button.
 input.onButtonPressed(Button.B, function on_button_pressed_b() {
     clickButton(1)
 })
+function changeLEDsStatus() {
+    /** change the LED status based on the lift's status */
+    if (elevator_data["status"] == -1) {
+        //  when the lift is out of order
+        basic.showString("OUT OF ORDER")
+    } else {
+        if (elevator_data["COP"]["call_directions_status"]["down"]) {
+            led.plot(0, 2)
+        } else if (!elevator_data["COP"]["call_directions_status"]["down"]) {
+            led.unplot(0, 2)
+        }
+        
+        if (elevator_data["COP"]["call_directions_status"]["up"]) {
+            led.plot(0, 2)
+        } else if (!elevator_data["COP"]["call_directions_status"]["up"]) {
+            led.unplot(0, 2)
+        }
+        
+    }
+    
+}
+
+function acknowledgeCallSignal(target_direction: number) {
+    /** 
+        acknowledgeCallSignal is what should occur when a call signal is received. 
+
+        Parameters: 
+            target_direction: the target direction
+        Returns: none
+    
+ */
+    //  Ensure that the value is only -1 (down) or 1 (up). 
+    target_direction = ensurePositiveNegativeBinaryOnly(target_direction)
+    //  Set the call direction status of the specific direction to true. 
+    if (target_direction == 1) {
+        elevator_data["COP"]["call_directions_status"]["up"] = true
+    } else if (target_direction == -1) {
+        elevator_data["COP"]["call_directions_status"]["down"] = true
+    }
+    
+}
+
+//  When certain values are received from the sender
+radio.onReceivedValue(function on_received_value(name: string, value: number) {
+    elevator_data["sendMachine"]["receive_data"]["text"] = name
+    elevator_data["sendMachine"]["receive_data"]["value"] = value
+    if (name.indexOf("gotL") >= 0 && name.indexOf("call") >= 0) {
+        //  The call was acknowledged. 
+        acknowledgeCallSignal(value)
+    }
+    
+})
+changeLEDsStatus()

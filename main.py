@@ -5,17 +5,29 @@
 
 # Elevator details
 elevator_data = {
+    'status': 0,
     'current_floorNumber': 0,
+    'directional': 0,
+
+    'sendMachine': {
+        'receive_data': {
+            'text': "",
+            'value': 0
+        }
+    },
 
     'COP': {
         'floorNumber': 1,
+        'call_directions_status': {
+            'down': False,
+            'up': False
+        },
         'send_data': {
             'text': "",
             'value': 0
         }
     }
 }
-
 
 def ensurePositiveNegativeBinaryOnly(variable_unfixed): 
     """
@@ -51,7 +63,7 @@ def playAudio(audio_name):
     """
 
     if ("buttonClick" in audio_name): 
-        music.ring_tone(Note.G)
+        music.play_tone(Note.G, music.beat(BeatFraction.HALF))
 
 def sendMessage(send_type = None): 
     """
@@ -85,8 +97,8 @@ def sendCallSignal(target_direction):
     # Ensure that target_direction is 1 or -1, nothing more or nothing less. 
     target_direction = ensurePositiveNegativeBinaryOnly(target_direction)
     
-    # Generate the message data, which contains "CP<floornumber>call" followed by the direction.
-    elevator_data['COP']['send_data']['text'] = ("CP" + str(elevator_data['COP']['floorNumber']) + "call")
+    # Generate the message data, which contains "L<floornumber>call" followed by the direction.
+    elevator_data['COP']['send_data']['text'] = ("L" + str(elevator_data['COP']['floorNumber']) + "call")
     elevator_data['COP']['send_data']['value'] = target_direction
 
     # Send the message.
@@ -106,7 +118,7 @@ def clickButton(target_direction):
     
     # Ensure that target_direction is 1 or -1, nothing more or nothing less.
     target_direction = ensurePositiveNegativeBinaryOnly(target_direction)
-    
+
     # Send the call signal. 
     sendCallSignal(target_direction)
     
@@ -117,15 +129,62 @@ def clickButton(target_direction):
 def on_button_pressed_a():
     clickButton(-1)
 
-input.on_button_pressed(Button.A, on_button_pressed_a)
-
 # Button B is the up button.
 def on_button_pressed_b():
     clickButton(1)
 
+# Map the buttons. 
+input.on_button_pressed(Button.A, on_button_pressed_a)
 input.on_button_pressed(Button.B, on_button_pressed_b)
 
+def changeLEDsStatus(): 
+    """
+        change the LED status based on the lift's status
+    """
+
+    if (elevator_data['status'] == -1): 
+        # when the lift is out of order
+        basic.show_string("OUT OF ORDER")
+    else: 
+        if (elevator_data['COP']['call_directions_status']['down']): 
+            led.plot(0, 2)
+        elif not(elevator_data['COP']['call_directions_status']['down']): 
+            led.unplot(0, 2)
+        
+        if (elevator_data['COP']['call_directions_status']['up']): 
+            led.plot(0, 2)
+        elif not(elevator_data['COP']['call_directions_status']['up']): 
+            led.unplot(0, 2)
+
+def acknowledgeCallSignal(target_direction): 
+    """
+        acknowledgeCallSignal is what should occur when a call signal is received. 
+
+        Parameters: 
+            target_direction: the target direction
+        Returns: none
+    """
+
+    # Ensure that the value is only -1 (down) or 1 (up). 
+    target_direction = ensurePositiveNegativeBinaryOnly(target_direction)
+
+    # Set the call direction status of the specific direction to true. 
+    if (target_direction == 1):
+        elevator_data['COP']['call_directions_status']['up'] = True
+    elif (target_direction == -1): 
+        elevator_data['COP']['call_directions_status']['down'] = True
 
 
+# When certain values are received from the sender
+def on_received_value(name, value):
+    elevator_data['sendMachine']['receive_data']['text'] = name
+    elevator_data['sendMachine']['receive_data']['value'] = value
 
+    if ('gotL' in name) and ('call' in name):
+        # The call was acknowledged. 
+        acknowledgeCallSignal(value)
+         
+radio.on_received_value(on_received_value)
+
+changeLEDsStatus()
 
