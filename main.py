@@ -63,7 +63,7 @@ def playAudio(audio_name):
     """
 
     if ("buttonClick" in audio_name): 
-        music.play_tone(Note.G, music.beat(BeatFraction.HALF))
+        music.play_tone(800, music.beat(BeatFraction.HALF))
 
 def sendMessage(send_type = None): 
     """

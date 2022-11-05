@@ -71,7 +71,7 @@ function playAudio(audio_name: string) {
     
  */
     if (audio_name.indexOf("buttonClick") >= 0) {
-        music.playTone(Note.G, music.beat(BeatFraction.Half))
+        music.playTone(800, music.beat(BeatFraction.Half))
     }
     
 }
